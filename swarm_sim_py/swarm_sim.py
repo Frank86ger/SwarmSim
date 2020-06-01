@@ -44,7 +44,7 @@ class Swarm(object):
         self.pos_diff_y = None
         self.base_velocity = 0.05
         self.max_velocity = 0.20
-        self.perception_angle = 50
+        self.perception_angle = 120
         self.drive = 0.001  # as in: opposite of inertia
         self.size = size
         for _ in range(self.amount_boids):
@@ -75,11 +75,10 @@ class Swarm(object):
         np.fill_diagonal(alignment_magnitudes, 0)
         np.fill_diagonal(cohesion_magnitudes, 0)
 
-        # TODO: this does not work yet
         # set magnitudes to zero for boids, that are not within perceptive field
-        separation_magnitudes[np.where(angle_decisions is False)] = 0
-        alignment_magnitudes[np.where(angle_decisions is False)] = 0
-        cohesion_magnitudes[np.where(angle_decisions is False)] = 0
+        # separation_magnitudes[np.where(~angle_decisions)] = 0
+        alignment_magnitudes[np.where(~angle_decisions)] = 0
+        cohesion_magnitudes[np.where(~angle_decisions)] = 0
 
         # calculate vectors for all potentials
         separation_vectors = self.separation(separation_magnitudes)
@@ -132,14 +131,13 @@ class Swarm(object):
         return me.pairwise_distances(self.positions)
 
     def angular_perception_filter(self, alpha):
-        # TODO: this still has bugs
+        # TODO: this still has bugs (divide by 0 or inf)
         vel = np.sqrt(self.velocities[:, 0]**2 + self.velocities[:, 1]**2)
         pos = np.sqrt(self.pos_diff_x**2 + self.pos_diff_y**2)
         a = self.pos_diff_x * self.velocities[:, 0]
         b = self.pos_diff_y * self.velocities[:, 1]
 
         np.fill_diagonal(pos, 1)
-
         acos_stuff = a + b / (vel*pos)
 
         angles = np.arccos(acos_stuff)
