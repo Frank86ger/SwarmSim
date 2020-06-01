@@ -62,7 +62,6 @@ class Swarm(object):
         distances = self.get_distances()
         border_distances = self.calc_border_distances()
         angle_decisions = self.angular_perception_filter(self.perception_angle)
-        print(np.sum(angle_decisions))
 
         # calculate magnitudes from potentials
         separation_magnitudes = separation_potential_func(distances)  # steer AWAY from weighted center of mass
@@ -131,14 +130,16 @@ class Swarm(object):
         return me.pairwise_distances(self.positions)
 
     def angular_perception_filter(self, alpha):
-        # TODO: this still has bugs (divide by 0 or inf)
+        # TODO: this is ugly
         vel = np.sqrt(self.velocities[:, 0]**2 + self.velocities[:, 1]**2)
         pos = np.sqrt(self.pos_diff_x**2 + self.pos_diff_y**2)
         a = self.pos_diff_x * self.velocities[:, 0]
         b = self.pos_diff_y * self.velocities[:, 1]
 
-        np.fill_diagonal(pos, 1)
+        pos[np.where(pos == 0)] = 1
         acos_stuff = a + b / (vel*pos)
+        acos_stuff[np.where(acos_stuff < -1)] = -1
+        acos_stuff[np.where(acos_stuff > 1)] = 1
 
         angles = np.arccos(acos_stuff)
         angles = angles/2/np.pi*360
@@ -207,11 +208,17 @@ def border_potential_func(dist):
 
 
 if __name__ == "__main__":
+
     fig, ax = plt.subplots()
     size_ = (10, 10)
+    size_ = (20, 20)
     amount_boids_ = 40
     swarm = Swarm(amount_boids_, size=size_)
     sc, = plt.plot([], [], 'ro')
+    lines = []
+    for idx in range(amount_boids_):
+        ln, = plt.plot([], [], 'b-')
+        lines.append(ln)
 
     def init():
         ax.set_xlim(0 - 0.1 * size_[0], size_[0] + 0.1 * size_[0])
@@ -224,9 +231,12 @@ if __name__ == "__main__":
 
     def update(_):
         positions, velocities = swarm.move_boids()
+        for idx, line in enumerate(lines):
+            line.set_data([positions[idx][0], positions[idx][0]+velocities[idx][0]*10],
+                          [positions[idx][1], positions[idx][1]+velocities[idx][1]*10])
         sc.set_data(positions.T)
-        return sc,
+        return [sc] + lines
 
-    ani = FuncAnimation(fig, update, frames=np.arange(10000),
+    ani = FuncAnimation(fig, update, frames=None,
                         init_func=init, blit=True, interval=20)
     plt.show()
