@@ -175,8 +175,8 @@ class Swarm(object):
     def cohesion(self, magnitudes):
         norms = np.sqrt(self.pos_diff_x ** 2 + self.pos_diff_y ** 2)
         norms[np.where(norms == 0)] = 1
-        x = np.sum((magnitudes * -self.pos_diff_x/norms), axis=0)
-        y = np.sum((magnitudes * -self.pos_diff_y/norms), axis=0)
+        x = np.sum((magnitudes * self.pos_diff_x/norms), axis=0)
+        y = np.sum((magnitudes * self.pos_diff_y/norms), axis=0)
         return np.array([x, y])
 
     def border_repulsion(self, magnitudes):
