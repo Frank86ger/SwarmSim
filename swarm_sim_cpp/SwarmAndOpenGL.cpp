@@ -1,8 +1,6 @@
 /*
 TODOs: better division into public and private
 TODOs: cleanup
-TODOs: perception angle
-TODOs: animate
 */
 
 #include <algorithm>
@@ -37,7 +35,6 @@ GLuint program;
 GLint attribute_coord2d;
 
 
-
 const int DIMENSIONS = 2;
 
 class Swarm {
@@ -58,22 +55,21 @@ class Swarm {
             for (auto& boid : boids){
                 boid.move();
             }
-            //  TODO: return positions and velocities?
         }
 
         void print_boids(){
             for (const auto& boid : boids){
-                cout << boid.x << endl;
+                cout << boid.x << " | " << boid.y << endl;
             }
         }
-
-        // this can all be private.
+    private:
         void update_state(){
             gather_positions();
             gather_velocities();
             calc_distances();
             calc_border_distances();
             calc_magnitudes();
+            calc_angle_filter();
             calc_vectors();
             update_boids();
         }
@@ -110,8 +106,9 @@ class Swarm {
                     const float& x2 = positions.values.at(j).at(0);
                     const float& y2 = positions.values.at(j).at(1);
                     distances.values.at(i).at(j) = sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
-                    pos_diff_x.values.at(i).at(0) = x2 - x1;
-                    pos_diff_y.values.at(i).at(0) = y2 - y1;
+
+                    pos_diff_x.values.at(i).at(j) = x2 - x1;
+                    pos_diff_y.values.at(i).at(j) = y2 - y1;
                 }
             }
         }
@@ -138,7 +135,28 @@ class Swarm {
         }
 
         void calc_angle_filter(){
-            // TODO
+            float vel = 0;
+            float pos = 0;
+            float acos_arg = 0;
+            float angle = 0;
+            int size = positions.values.size();
+            for (int i=0; i<size; i++) {
+                vel = sqrt(pow(velocities.values.at(i).at(0), 2) + pow(velocities.values.at(i).at(1), 2));
+                for (int j=0; j<size; j++) {
+                    pos = distances.values.at(i).at(j);
+                    acos_arg = pos_diff_x.values.at(i).at(j) * velocities.values.at(i).at(0) + pos_diff_y.values.at(i).at(j) * velocities.values.at(i).at(1) / (vel * pos);
+                    if (acos_arg < -1) acos_arg = -1;
+                    if (acos_arg > 1) acos_arg = 1;
+                    angle = acos(acos_arg) * 180. / PI;
+
+                    if (angle > perception_angle || angle < -perception_angle){
+                        alignment_magnitudes.values.at(i).at(j) = 0;
+                        cohesion_magnitudes.values.at(i).at(j) = 0;
+
+                    }
+
+                }
+            }
         }
 
         void remove_boid(){
@@ -186,25 +204,25 @@ class Swarm {
                 cohesion_vectors.values.at(i).at(1) = 0.;
                 alignment_vectors.values.at(i).at(0) = 0.;
                 alignment_vectors.values.at(i).at(1) = 0.;
+                border_vectors.values.at(i).at(0) = 0.;
+                border_vectors.values.at(i).at(1) = 0.;
                 for (int j=0; j<size; j++) {
                     if (distances.values.at(i).at(j) == 0) norm = 1.;
                     else norm = distances.values.at(i).at(j);
 
-                    separation_vectors.values.at(i).at(0) -= separation_magnitudes.values.at(i).at(j) * pos_diff_x.values.at(i).at(0) / norm;
-                    separation_vectors.values.at(i).at(1) -= separation_magnitudes.values.at(i).at(j) * pos_diff_y.values.at(i).at(0) / norm;
+                    separation_vectors.values.at(i).at(0) -= separation_magnitudes.values.at(i).at(j) * pos_diff_x.values.at(i).at(j) / norm;
+                    separation_vectors.values.at(i).at(1) -= separation_magnitudes.values.at(i).at(j) * pos_diff_y.values.at(i).at(j) / norm;
 
-                    cohesion_vectors.values.at(i).at(0) += cohesion_magnitudes.values.at(i).at(j) * pos_diff_x.values.at(i).at(0) / norm;
-                    cohesion_vectors.values.at(i).at(1) += cohesion_magnitudes.values.at(i).at(j) * pos_diff_y.values.at(i).at(0) / norm;
+                    cohesion_vectors.values.at(i).at(0) += cohesion_magnitudes.values.at(i).at(j) * pos_diff_x.values.at(i).at(j) / norm;
+                    cohesion_vectors.values.at(i).at(1) += cohesion_magnitudes.values.at(i).at(j) * pos_diff_y.values.at(i).at(j) / norm;
 
-                    alignment_vectors.values.at(i).at(0) += alignment_magnitudes.values.at(i).at(j) * velocities.values.at(i).at(0);
-                    alignment_vectors.values.at(i).at(1) += alignment_magnitudes.values.at(i).at(j) * velocities.values.at(i).at(1);
-
-                    border_vectors.values.at(i).at(0) += border_magnitudes.values.at(i).at(0) * positions.values.at(i).at(0);
-                    border_vectors.values.at(i).at(0) += border_magnitudes.values.at(i).at(1) * (positions.values.at(i).at(0) - 10);
-                    border_vectors.values.at(i).at(1) += border_magnitudes.values.at(i).at(2) * positions.values.at(i).at(1);
-                    border_vectors.values.at(i).at(1) += border_magnitudes.values.at(i).at(3) * (positions.values.at(i).at(1) - 10);
-
+                    alignment_vectors.values.at(i).at(0) += alignment_magnitudes.values.at(i).at(j) * velocities.values.at(j).at(0);
+                    alignment_vectors.values.at(i).at(1) += alignment_magnitudes.values.at(i).at(j) * velocities.values.at(j).at(1);
                 }
+                border_vectors.values.at(i).at(0) += border_magnitudes.values.at(i).at(0) * positions.values.at(i).at(0);
+                border_vectors.values.at(i).at(0) += border_magnitudes.values.at(i).at(1) * (positions.values.at(i).at(0) - size_x);
+                border_vectors.values.at(i).at(1) += border_magnitudes.values.at(i).at(2) * positions.values.at(i).at(1);
+                border_vectors.values.at(i).at(1) += border_magnitudes.values.at(i).at(3) * (positions.values.at(i).at(1) - size_y);
             }
         }
 
@@ -238,13 +256,11 @@ class Swarm {
             }
         }
         
-    private:
         Vector2D<float> positions = Vector2D<float> (DIMENSIONS, amount_boids);  // can I init without size?
         Vector2D<float> velocities = Vector2D<float> (DIMENSIONS, amount_boids);
         Vector2D<float> distances = Vector2D<float> (amount_boids, amount_boids);
-        // TODO list for dimensions?
-        Vector2D<float> pos_diff_x = Vector2D<float> (1, amount_boids);
-        Vector2D<float> pos_diff_y = Vector2D<float> (1, amount_boids);
+        Vector2D<float> pos_diff_x = Vector2D<float> (amount_boids, amount_boids);
+        Vector2D<float> pos_diff_y = Vector2D<float> (amount_boids, amount_boids);
         Vector2D<float> border_distances = Vector2D<float> (2*DIMENSIONS, amount_boids);
 
         Vector2D<float> separation_magnitudes = Vector2D<float> (amount_boids, amount_boids);
@@ -275,8 +291,8 @@ Swarm::Swarm (int a, float b, float c, float d, float e, float f, float g) {
     positions.reshape(DIMENSIONS, amount_boids);
     velocities.reshape(DIMENSIONS, amount_boids);
     distances.reshape(amount_boids, amount_boids);
-    pos_diff_x.reshape(1, amount_boids);
-    pos_diff_y.reshape(1, amount_boids);
+    pos_diff_x.reshape(amount_boids, amount_boids);
+    pos_diff_y.reshape(amount_boids, amount_boids);
     border_distances.reshape(2*DIMENSIONS, amount_boids);
     separation_magnitudes.reshape(amount_boids, amount_boids);
     alignment_magnitudes.reshape(amount_boids, amount_boids);
@@ -289,7 +305,7 @@ Swarm::Swarm (int a, float b, float c, float d, float e, float f, float g) {
 }
 
 
-Swarm swarm (20, 10., 10., 0.05, 0.2, 110., 0.01);
+Swarm swarm (40, 20., 20., 0.05, 0.2, 120., 0.001);
 
 
 int init_resources()
@@ -385,8 +401,6 @@ void onDisplay()
 
   glColor3f(0.0f,0.0f,1.0f); //blue color
 
-  // makeBoidPolygon(0.5, 0.5, 0.2, 15);
-
   glDisableVertexAttribArray(attribute_coord2d);
   glutSwapBuffers();
 }
@@ -396,7 +410,6 @@ void onIdle(){
 
     float angle = 0;
 
-    // Swarm swarm (20, 10., 10., 0.05, 0.2, 110., 0.01);
     for(int i=0; i<100; i++){
         swarm.move_boids();
         // usleep(3000);
@@ -410,9 +423,7 @@ void onIdle(){
             if (boid.vx == 0 && boid.vy > 0.) {angle = PI/2;}
             if (boid.vx == 0 && boid.vy < 0.) {angle = -PI/2;}
             angle *= 180 / PI;
-            // makeBoidPolygon(boid.x/11., boid.y/11., 0.02, angle);
-            makeBoidPolygon((boid.x)/5. - 1, (boid.y)/5 - 1, 0.02, angle);
-            // makeBoidPolygon(boid.x/11., boid.y/11., 0.02, 45+i*3.6);
+            makeBoidPolygon((boid.x)/10. - 1, (boid.y)/10. - 1, 0.005, angle);
         }
         glutSwapBuffers();
     }
@@ -431,7 +442,7 @@ int main(int argc, char* argv[]) {
   glutInit(&argc, argv);
   glutInitContextVersion(2,0);
   glutInitDisplayMode(GLUT_RGBA|GLUT_DOUBLE|GLUT_DEPTH);
-  glutInitWindowSize(800, 800);
+  glutInitWindowSize(1400, 1400);
   glutCreateWindow("Swarm Sim");
 
   GLenum glew_status = glewInit();
@@ -439,7 +450,7 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
     return 1;
   }
-  cout << "BLAH!" << endl;
+  cout << "Start simulation" << endl;
   
   if (init_resources()) {
     glutDisplayFunc(onDisplay);

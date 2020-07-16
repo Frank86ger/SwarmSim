@@ -1,5 +1,4 @@
-// #ifndef Vector2D_H
-// #define Vector2D_H
+
 #include <iostream>
 #include <vector>
 #include <math.h>
@@ -27,5 +26,3 @@ class Vector2D { // ::operator[a, b]?
         int dim_x;
         int dim_y;
 };
-
-// #endif

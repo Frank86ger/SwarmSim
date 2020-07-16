@@ -1,5 +1,3 @@
-// #ifndef Boid_H
-// #define Boid_H
 
 class Boid {
     public:
@@ -20,5 +18,3 @@ class Boid {
         float size_x;
         float size_y;
 };
-
-// #endif
